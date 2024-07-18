@@ -31,20 +31,19 @@ module.exports = {
     // 插件类型 LLM | TTS | IAT
     type: "TTS",
     /**
-    * 插件逻辑
-    * @param {String} device_id 设备id 
-    * @param {String} text 待播报的文本 
-    * @param {Boolean} pauseInputAudio 客户端是否需要暂停音频采集
-    * @param {Boolean} reRecord TTS播放完毕后是再次进入iat识别环节
-    * @param {Function} (is_over, audio, TTS_resolve)=> void 音频回调
-    * @return {Function} (pcm)=> Promise<Boolean>
+     * TTS 插件封装 
+     * @param {String}      device_id           设备ID   
+     * @param {String}      text                待播报的文本   
+     * @param {Object}      api_key             用户配置的key   
+     * @param {Number}      devLog              日志输出等级，为0时不应该输出任何日志   
+     * @param {Function}    tts_params_set      用户自定义传输给 TTS 服务的参数，eg: tts_params_set(参数体)
+     * @param {Function}    logWSServer         将 ws 服务回传给框架，如果不是ws服务可以这么写: logWSServer({ close: ()=> {} })
+     * @param {Function}    ttsServerErrorCb    与 TTS 服务之间发生错误时调用，并且传入错误说明，eg: ttsServerErrorCb("意外错误")
+     * @param {Function}    cb                  TTS 服务返回音频数据时调用，eg: cb({ audio: 音频base64, ... })
+     * @param {Function}    log                 为保证日志输出的一致性，请使用 log 对象进行日志输出，eg: log.error("错误信息")、log.info("普通信息")、log.tts_info("tts 专属信息")
     */
-    main(device_id, { text, reRecord = false, pauseInputAudio = true, cb }) {
-        const { devLog, api_key, tts_server, tts_params_set } = G_config;
-
-        const config = {
-            token: api_key[tts_server].token,
-        }
+    main({ device_id, text, devLog, api_key, logWSServer, tts_params_set, cb, log, ttsServerErrorCb }) {
+        const config = { ...api_key }
 
         const url = `https://u95167-bd74-2aef8085.westx.seetacloud.com:8443/flashsummary/tts?token=${config.token}`;
         let language = "ZH";
@@ -113,20 +112,10 @@ module.exports = {
 
             if (ar) {
                 devLog && console.log("音频地址：", ar);
-
-                const { ws: ws_client, tts_list } = G_devices.get(device_id);
-                // 开始播放直接先让 esp32 暂停采集音频，不然处理不过来
-                if (pauseInputAudio) {
-                    ws_client && ws_client.send("pause_voice");
-                    G_devices.set(device_id, {
-                        ...G_devices.get(device_id),
-                        client_out_audio_ing: true,
-                    })
-                }
+ 
                 const wavStream = wavUrlToStream(ar);
-                const curTTSKey = tts_list.size;
-                const curTTSWs = wavStream;
-                tts_list.set(curTTSKey, curTTSWs)
+                logWSServer(wavStream)
+ 
 
                 devLog && console.log("-> tts服务连接成功！")
                 wavStream.on('data', (chunk) => {
@@ -138,11 +127,8 @@ module.exports = {
                         audio: chunk,
 
                         // 固定写法
-                        TTS_resolve: resolve,
-                        curTTSWs,
-                        curTTSKey,
-                        device_id,
-                        reRecord,
+                        resolve: resolve,
+                        ws: wavStream
                     });
                 });
                 wavStream.on('end', () => {
@@ -152,20 +138,17 @@ module.exports = {
                         is_over: true,
                         audio: "",
                         // 固定写法
-                        TTS_resolve: resolve,
-                        curTTSWs,
-                        curTTSKey,
-                        device_id,
-                        reRecord,
+                        resolve: resolve,
+                        ws: wavStream
                     });
                 });
                 wavStream.on('error', (err) => {
                     console.error(`Stream error: ${err.message}`);
                 });
 
-            } else {
-                devLog && console.log(`tts错误 ${res.code}: ${res.message}`)
+            } else { 
                 curTTSWs.close()
+                ttsServerErrorCb(`tts错误 ${res.code}: ${res.message}`) 
                 resolve(false);
 
             }
