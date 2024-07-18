@@ -106,20 +106,19 @@ module.exports = {
         }
 
 
-        return new Promise(async (resolve) => {
-            devLog && console.log('\n=== 开始请求TTS: ', text, " ===");
+        return new Promise(async (resolve) => { 
             const ar = await getAR();
 
             if (ar) {
-                devLog && console.log("音频地址：", ar);
+                // devLog && log.tts_info("音频地址：", ar);
  
                 const wavStream = wavUrlToStream(ar);
                 logWSServer(wavStream)
  
 
-                devLog && console.log("-> tts服务连接成功！")
+                devLog && log.tts_info("-> tts服务连接成功！")
                 wavStream.on('data', (chunk) => {
-                    // console.log(`Received ${chunk.length} bytes of data.`);
+                    // log.tts_info(`Received ${chunk.length} bytes of data.`);
                     //     let audioBuf = Buffer.from(audio, 'base64')
                     cb({
                         // 根据服务控制
@@ -131,8 +130,7 @@ module.exports = {
                         ws: wavStream
                     });
                 });
-                wavStream.on('end', () => {
-                    console.log('No more data.');
+                wavStream.on('end', () => { 
                     cb({
                         // 根据服务控制
                         is_over: true,
@@ -143,7 +141,7 @@ module.exports = {
                     });
                 });
                 wavStream.on('error', (err) => {
-                    console.error(`Stream error: ${err.message}`);
+                    log.error(`Stream error: ${err.message}`);
                 });
 
             } else { 
