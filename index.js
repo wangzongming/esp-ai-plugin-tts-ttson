@@ -1,24 +1,7 @@
+const Nls = require('alibabacloud-nls')
+const RPCClient = require('@alicloud/pop-core').RPCClient;
 
-const { PassThrough } = require('stream');
-const https = require('https');
 
-
-function wavUrlToStream(url) {
-    const stream = new PassThrough();
-
-    https.get(url, (response) => {
-        if (response.statusCode !== 200) {
-            stream.emit('error', new Error(`Request failed with status code ${response.statusCode}`));
-            return;
-        }
-
-        response.pipe(stream);
-    }).on('error', (err) => {
-        stream.emit('error', err);
-    });
-
-    return stream;
-}
 
 /**
  * esp-ai TTS 插件开发
@@ -27,7 +10,7 @@ function wavUrlToStream(url) {
 */
 module.exports = {
     // 插件名字
-    name: "esp-ai-plugin-tts-ttson",
+    name: "esp-ai-plugin-tts-aliyun",
     // 插件类型 LLM | TTS | IAT
     type: "TTS",
     /**
@@ -45,109 +28,77 @@ module.exports = {
     main({ device_id, text, devLog, api_key, logWSServer, tts_params_set, cb, log, ttsServerErrorCb }) {
         const config = { ...api_key }
 
-        const url = `https://u95167-bd74-2aef8085.westx.seetacloud.com:8443/flashsummary/tts?token=${config.token}`;
-        let language = "ZH";
-
-        if (/[a-zA-Z]/.test(text)) {
-            language = "auto";
-        }
-
-        const _payload = {
-            voice_id: 1683,
-            text: text,
-            format: "wav",
-            to_lang: language,
-            auto_translate: 0,
-            voice_speed: "0%",
-            speed_factor: 1,
-            rate: "1.0",
-            client_ip: "ACGN",
-            emotion: 1,
-            volume_change_dB: 4,
-            zip_level: 4, // 16k
-            // zip_level: 5, // 24k
-        }
-        const payload = JSON.stringify(tts_params_set ? tts_params_set(_payload) : _payload);
-        const options = {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-            }
-        };
-
-        const getAR = () => {
-            return new Promise((resolve, reject) => {
-                const req = https.request(url, options, (res) => {
-                    let data = '';
-
-                    res.on('data', (chunk) => {
-                        data += chunk;
-                    });
-
-                    res.on('end', () => {
-                        if (res.statusCode !== 200) {
-                            console.error(`Error: ${res.statusCode}`);
-                            reject(null);
-                        } else {
-                            const responseJson = JSON.parse(data);
-                            resolve(`${responseJson.url}:${responseJson.port}/flashsummary/retrieveFileData?stream=True&token=${config.token}&voice_audio_path=${responseJson.voice_path}`);
-                        }
-                    });
+        function genToekn() {
+            return new Promise((resolve) => {
+                const client = new RPCClient({
+                    accessKeyId: config.AccessKeyID,
+                    accessKeySecret: config.AccessKeySecret,
+                    endpoint: 'https://nls-meta.cn-shanghai.aliyuncs.com',
+                    apiVersion: '2019-02-28'
                 });
-                req.on('error', (e) => {
-                    console.error(`Error fetching audio URL: ${e.message}`);
-                    reject(null);
+                client.request('CreateToken').then((result) => {
+                    config.token = result.Token.Id;
+                    resolve();
+                    // console.log(result)
+                    // console.log("token = " + result.Token.Id)
+                    // console.log("expireTime = " + result.Token.ExpireTime)
                 });
-
-                req.write(payload);
-                req.end();
             })
         }
 
 
-        return new Promise(async (resolve) => { 
-            const ar = await getAR();
-
-            if (ar) {
-                // devLog && log.tts_info("音频地址：", ar);
- 
-                const wavStream = wavUrlToStream(ar);
-                logWSServer(wavStream)
- 
-
-                devLog && log.tts_info("-> tts服务连接成功！")
-                wavStream.on('data', (chunk) => {
-                    // log.tts_info(`Received ${chunk.length} bytes of data.`);
-                    //     let audioBuf = Buffer.from(audio, 'base64')
-                    cb({
-                        // 根据服务控制
-                        is_over: false,
-                        audio: chunk,
-
-                        // 固定写法
-                        resolve: resolve,
-                        ws: wavStream
-                    });
+        return new Promise(async (resolve) => {
+            await genToekn();
+            const tts = new Nls.SpeechSynthesizer({
+                url: "wss://nls-gateway-cn-shanghai.aliyuncs.com/ws/v1",
+                appkey: config.appkey,
+                token: config.token,
+            })
+            const wss = { close: () => { } }
+            logWSServer(wss);
+            tts.on("data", (msg) => {
+                // console.log(`recv size: ${msg.length}`)  
+                let audioBuf = Buffer.from(msg, 'base64')
+                cb({
+                    // 根据服务控制
+                    is_over: false,
+                    audio: audioBuf,
+                    // 固定写法
+                    resolve: resolve,
+                    ws: wss
                 });
-                wavStream.on('end', () => { 
-                    cb({
-                        // 根据服务控制
-                        is_over: true,
-                        audio: "",
-                        // 固定写法
-                        resolve: resolve,
-                        ws: wavStream
-                    });
-                });
-                wavStream.on('error', (err) => {
-                    log.error(`Stream error: ${err.message}`);
-                });
+            })
 
-            } else { 
-                curTTSWs.close()
-                ttsServerErrorCb(`tts错误 ${res.code}: ${res.message}`) 
+            tts.on("completed", (msg) => {
+                // console.log("Client recv completed:", msg)
+                cb({
+                    // 根据服务控制
+                    is_over: true,
+                    audio: "",
+                    // 固定写法
+                    resolve: resolve,
+                    ws: wss
+                });
+            })
+
+            // tts.on("closed", () => {
+            //     console.log("Client recv closed")
+            // }) 
+            tts.on("failed", (msg) => {
+                ttsServerErrorCb(`tts错误: ${msg}`)
                 resolve(false);
+            })
+
+            const param = tts.defaultStartParams()
+            param.text = text
+            // param.voice = "zhiyuan"
+
+            try {
+                tts.start(tts_params_set ? tts_params_set(param) : param, true, 6000)
+            } catch (error) {
+                ttsServerErrorCb(`tts错误: ${error}`)
+                resolve(false);
+            } finally {
 
             }
 

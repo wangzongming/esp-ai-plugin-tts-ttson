@@ -1,12 +1,19 @@
 {
-  "name": "esp-ai-plugin-tts-ttson",
-  "keywords": ["esp-ai-plugin", "esp-ai-plugin-tts"],
-  "version": "0.0.2",
-  "description": "让 esp-ai 支持海豚配音的插件",
+  "name": "esp-ai-plugin-tts-aliyun",
+  "keywords": [
+    "esp-ai-plugin",
+    "esp-ai-plugin-tts"
+  ],
+  "version": "0.0.1",
+  "description": "让 esp-ai 支持阿里云的TTS",
   "main": "index.js",
-  "dependencies": { },
+  "homepage": "https://github.com/wangzongming/esp-ai-plugin-tts-aliyun",
+  "dependencies": {
+    "@alicloud/pop-core": "^1.7.13",
+    "alibabacloud-nls": "^1.0.4"
+  },
   "devDependencies": {},
-  "scripts": { },
+  "scripts": {},
   "author": "",
   "license": "ISC"
 }
