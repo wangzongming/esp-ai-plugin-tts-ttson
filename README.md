@@ -1,17 +1,13 @@
-# esp-ai-plugin-tts-aliyun [![npm](https://img.shields.io/npm/v/esp-ai-plugin-tts-aliyun.svg)](https://www.npmjs.com/package/esp-ai-plugin-tts-aliyun) [![npm](https://img.shields.io/npm/dm/esp-ai-plugin-tts-aliyun.svg?style=flat)](https://www.npmjs.com/package/esp-ai-plugin-tts-aliyun)
+# esp-ai-plugin-tts-ttson [![npm](https://img.shields.io/npm/v/esp-ai-plugin-tts-ttson.svg)](https://www.npmjs.com/package/esp-ai-plugin-tts-ttson) [![npm](https://img.shields.io/npm/dm/esp-ai-plugin-tts-ttson.svg?style=flat)](https://www.npmjs.com/package/esp-ai-plugin-tts-ttson)
 
-让 ESP-AI 支持阿里云的 `TTS` 服务的插件
+让 ESP-AI 支持海豚配音的 `TTS` 服务的插件
 
-
-阿里云`TTS`服务控制台: https://ai.aliyun.com/nls/tts
-
-开通文档：https://help.aliyun.com/zh/isi/getting-started/start-here?spm=a2c4g.11186623.0.0.cda774c1GbPCap
-
+ 
 
 # 安装
 在你的 `ESP-AI` 项目中执行下面命令
 ```bash
-npm i esp-ai-plugin-tts-aliyun
+npm i esp-ai-plugin-tts-ttson
 ```
 
 # 使用 
