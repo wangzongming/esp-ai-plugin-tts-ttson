@@ -1,6 +1,7 @@
 
 const { PassThrough } = require('stream');
 const https = require('https');
+const http = require('http');
 
 
 function wavUrlToStream(url) {
@@ -34,18 +35,21 @@ module.exports = {
      * TTS 插件封装 
      * @param {String}      device_id           设备ID   
      * @param {String}      text                待播报的文本   
-     * @param {Object}      api_key             用户配置的key   
+     * @param {Object}      tts_config          用户配置的 apikey 等信息    
+     * @param {String}      iat_server          用户配置的 iat 服务 
+     * @param {String}      llm_server          用户配置的 llm 服务 
+     * @param {String}      tts_server          用户配置的 tts 服务 
      * @param {Number}      devLog              日志输出等级，为0时不应该输出任何日志   
      * @param {Function}    tts_params_set      用户自定义传输给 TTS 服务的参数，eg: tts_params_set(参数体)
-     * @param {Function}    logWSServer         将 ws 服务回传给框架，如果不是ws服务可以这么写: logWSServer({ close: ()=> {} })
+     * @param {Function}    logWSServer         将 ws 服务回传给框架，如果不是ws服务可以这么写: logWSServer({ close: ()=> { 中断逻辑...  } })
      * @param {Function}    ttsServerErrorCb    与 TTS 服务之间发生错误时调用，并且传入错误说明，eg: ttsServerErrorCb("意外错误")
      * @param {Function}    cb                  TTS 服务返回音频数据时调用，eg: cb({ audio: 音频base64, ... })
      * @param {Function}    log                 为保证日志输出的一致性，请使用 log 对象进行日志输出，eg: log.error("错误信息")、log.info("普通信息")、log.tts_info("tts 专属信息")
     */
-    main({ device_id, text, devLog, api_key, logWSServer, tts_params_set, cb, log, ttsServerErrorCb }) {
-        const config = { ...api_key }
+    async main({ text, devLog, tts_config,  logWSServer, tts_params_set, cb, log, ttsServerErrorCb, connectServerCb, connectServerBeforeCb }) {
+        const config = { ...tts_config }
 
-        const url = `https://u95167-bd74-2aef8085.westx.seetacloud.com:8443/flashsummary/tts?token=${config.token}`;
+        const url = config.url ? `${config.url}?token=${config.token}` : `https://u95167-bd74-2aef8085.westx.seetacloud.com:8443/flashsummary/tts?token=${config.token}`;
         let language = "ZH";
 
         if (/[a-zA-Z]/.test(text)) {
@@ -78,7 +82,10 @@ module.exports = {
 
         const getAR = () => {
             return new Promise((resolve, reject) => {
-                const req = https.request(url, options, (res) => {
+                connectServerBeforeCb();
+                const fetchFn = url.indexOf("https://") !== -1 ? https : http;
+                const req = fetchFn.request(url, options, (res) => {
+                    connectServerCb(true);
                     let data = '';
 
                     res.on('data', (chunk) => {
@@ -87,9 +94,10 @@ module.exports = {
 
                     res.on('end', () => {
                         if (res.statusCode !== 200) {
-                            console.error(`Error: ${res.statusCode}`);
+                            log.error(`Error: ${data}`);
                             reject(null);
                         } else {
+                            // console.log('responseJson', responseJson)
                             const responseJson = JSON.parse(data);
                             resolve(`${responseJson.url}:${responseJson.port}/flashsummary/retrieveFileData?stream=True&token=${config.token}&voice_audio_path=${responseJson.voice_path}`);
                         }
@@ -106,51 +114,42 @@ module.exports = {
         }
 
 
-        return new Promise(async (resolve) => { 
-            const ar = await getAR();
+        const ar = await getAR();
 
-            if (ar) {
-                // devLog && log.tts_info("音频地址：", ar);
- 
-                const wavStream = wavUrlToStream(ar);
-                logWSServer(wavStream)
- 
+        if (ar) {
+            // devLog && log.tts_info("音频地址：", ar);
 
-                devLog && log.tts_info("-> tts服务连接成功！")
-                wavStream.on('data', (chunk) => {
-                    // log.tts_info(`Received ${chunk.length} bytes of data.`);
-                    //     let audioBuf = Buffer.from(audio, 'base64')
-                    cb({
-                        // 根据服务控制
-                        is_over: false,
-                        audio: chunk,
+            const wavStream = wavUrlToStream(ar);
+            logWSServer(wavStream)
 
-                        // 固定写法
-                        resolve: resolve,
-                        ws: wavStream
-                    });
+
+            devLog && log.tts_info("-> tts服务连接成功！")
+            wavStream.on('data', (chunk) => {
+                // log.tts_info(`Received ${chunk.length} bytes of data.`);
+                //     let audioBuf = Buffer.from(audio, 'base64')
+                cb({
+                    // 根据服务控制
+                    is_over: false,
+                    audio: chunk, 
+                    ws: wavStream
                 });
-                wavStream.on('end', () => { 
-                    cb({
-                        // 根据服务控制
-                        is_over: true,
-                        audio: "",
-                        // 固定写法
-                        resolve: resolve,
-                        ws: wavStream
-                    });
+            });
+            wavStream.on('end', () => {
+                cb({
+                    // 根据服务控制
+                    is_over: true,
+                    audio: "", 
+                    ws: wavStream
                 });
-                wavStream.on('error', (err) => {
-                    log.error(`Stream error: ${err.message}`);
-                });
+            });
+            wavStream.on('error', (err) => {
+                log.error(`Stream error: ${err.message}`);
+            });
 
-            } else { 
-                curTTSWs.close()
-                ttsServerErrorCb(`tts错误 ${res.code}: ${res.message}`) 
-                resolve(false);
+        } else {
+            curTTSWs.close()
+            ttsServerErrorCb(`tts错误 ${res.code}: ${res.message}`) 
 
-            }
-
-        })
+        }
     }
 }

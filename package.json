@@ -1,7 +1,7 @@
 {
   "name": "esp-ai-plugin-tts-ttson",
   "keywords": ["esp-ai-plugin", "esp-ai-plugin-tts"],
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "让 esp-ai 支持海豚配音的插件",
   "main": "index.js",
   "dependencies": { },

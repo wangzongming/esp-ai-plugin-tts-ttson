@@ -17,11 +17,11 @@ espAi({
 
     // 配置使用插件并且为插件配置api-key
     tts_server: "esp-ai-plugin-tts-ttson",
-    api_key: {
-        "esp-ai-plugin-tts-ttson": {
-            token: "ht-xxx"
-        },
-    },
+    tts_config: {
+        // token， 不给的情况下有 1000 个字的免费额度
+        // 注册地址：https://www.ttson.cn/ 
+        // token: "ht-xxx", 
+    }, 
 
     // 引入插件
     plugins: [ 
@@ -30,8 +30,7 @@ espAi({
 
     // 详细参数
     tts_params_set: (params) => {  
-        /** 海豚配音 **/
-        // token注册：https://www.ttson.cn/ 
+        /** 海豚配音 **/ 
         // 说话人列表见：角色列表.yaml
         // params.voice_id = 430;
         params.voice_id = 1683;
