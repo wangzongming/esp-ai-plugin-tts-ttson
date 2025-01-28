@@ -1,0 +1,20 @@
+
+# See https://help.github.com/ignore-files/ for more about ignoring files.
+
+db
+test.js
+test.py
+src/index_copy.js
+src/config_copy.js
+src/config_dev.js
+package-lock.json
+pre-version-log.md  
+
+# dependencies
+node_modules
+example/node_modules
+example/index_copy.js
+
+# builds
+build 
+ 

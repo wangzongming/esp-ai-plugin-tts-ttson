@@ -4,22 +4,6 @@ const https = require('https');
 const http = require('http');
 
 
-function wavUrlToStream(url) {
-    const stream = new PassThrough();
-
-    https.get(url, (response) => {
-        if (response.statusCode !== 200) {
-            stream.emit('error', new Error(`Request failed with status code ${response.statusCode}`));
-            return;
-        }
-
-        response.pipe(stream);
-    }).on('error', (err) => {
-        stream.emit('error', err);
-    });
-
-    return stream;
-}
 
 /**
  * esp-ai TTS 插件开发
@@ -28,7 +12,7 @@ function wavUrlToStream(url) {
 */
 module.exports = {
     // 插件名字
-    name: "esp-ai-plugin-tts-ttson",
+    name: "esp-ai-plugin-tts-aliyun",
     // 插件类型 LLM | TTS | IAT
     type: "TTS",
     /**
@@ -103,13 +87,13 @@ module.exports = {
                         }
                     });
                 });
-                req.on('error', (e) => {
-                    console.error(`Error fetching audio URL: ${e.message}`);
-                    reject(null);
+                client.request('CreateToken').then((result) => {
+                    config.token = result.Token.Id;
+                    resolve();
+                    // console.log(result)
+                    // console.log("token = " + result.Token.Id)
+                    // console.log("expireTime = " + result.Token.ExpireTime)
                 });
-
-                req.write(payload);
-                req.end();
             })
         }
 

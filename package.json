@@ -4,9 +4,13 @@
   "version": "0.0.3",
   "description": "让 esp-ai 支持海豚配音的插件",
   "main": "index.js",
-  "dependencies": { },
+  "homepage": "https://github.com/wangzongming/esp-ai-plugin-tts-ttson",
+  "dependencies": {
+    "@alicloud/pop-core": "^1.7.13",
+    "alibabacloud-nls": "^1.0.4"
+  },
   "devDependencies": {},
-  "scripts": { },
+  "scripts": {},
   "author": "",
   "license": "ISC"
 }
